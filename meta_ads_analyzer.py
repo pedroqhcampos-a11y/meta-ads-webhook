@@ -20,7 +20,7 @@ def analyze_daily_metrics(data: dict) -> dict:
     """
     
     # Extrai métricas principais
-    campaign_name = data.get("campaign_name", "Campanha")
+    campaign_name = data.get("campaign_name", "")
     ad_name = data.get("ad_name", "")
     adset_name = data.get("adset_name", "")
     
@@ -61,35 +61,37 @@ MÉTRICAS DA CAMPANHA:
 
 FORNEÇA UMA ANÁLISE COMPLETA E PROFISSIONAL SEGUINDO ESTA ESTRUTURA:
 
-1. STATUS GERAL (em uma linha, seja direto)
+1. STATUS GERAL: (nessa mesma linha, seja direto e claro, objetivo)
 
-2. ANÁLISE DE PERFORMANCE (parágrafo explicativo sobre o desempenho geral)
+2. ANÁLISE DE PERFORMANCE (visão sobre o desempenho geral)
 
-3. PONTOS POSITIVOS (liste 2-4 pontos específicos com números)
+(dê um espaço aqui)
 
-4. PONTOS DE ATENÇÃO (liste 2-4 problemas ou riscos identificados)
+3. PONTOS POSITIVOS (liste 2-4 pontos específicos com emoji de números, contexto e comparando o mercado de tráfego para o nicho do cliente e o histórico de gastos e retorno da conta do cliente)
+
+4. PONTOS DE ATENÇÃO (liste 2-4 problemas ou riscos identificados, como solucionar de forma prática ou ação que deve ser feita (sugestão) e como pode influenciar o resultado)
 
 5. ANÁLISE DE CRIATIVOS E COPY (baseado no CTR, frequência e engajamento):
-   - Avalie se o criativo está performando bem
-   - Sugira melhorias específicas no criativo (formato, cor, CTA visual)
-   - Sugira melhorias na copy (tom, urgência, benefícios)
-   - Indique se precisa de teste A/B
+   - Avalie se os criativos estão performando bem
+   - Sugira melhorias específicas no criativo e/ou copy, se ver necessidade (formato, cor, CTA visual)
+   - Sugira melhorias na copy se necess[ario (tom, urgência, benefícios)
+   - Indique se precisa de teste A/B e como deve ser feito
 
 6. ANÁLISE DE SEGMENTAÇÃO (baseado no CPM, CPC e frequência):
-   - Avalie se o público está correto
-   - Sugira ajustes de segmentação
+   - Avalie se o público está correto, quando foi usado um parecido na conta e teve o resultado que você espera, ou como pode ser criado esse público de acordo com essa conta de anuncios e resultados.
+   - Sugira ajustes de segmentação se achar viável, sendo claro o que deve ser feito e qual resultado esperado.
    - Indique se há saturação ou oportunidades
 
 7. ANÁLISE DE ORÇAMENTO E ESCALA:
-   - Avalie se o orçamento está adequado
+   - Avalie se o orçamento está adequado para a verba mensal do cliente
    - Sugira como escalar (se aplicável)
    - Indique riscos de escala
 
-8. AÇÕES IMEDIATAS (liste 3-5 ações específicas e acionáveis para HOJE)
+8. AÇÕES IMEDIATAS (liste 3-5 ações específicas e acionáveis, e como fazer, e quais resultados esperados)
 
-9. AÇÕES DE MÉDIO PRAZO (liste 2-3 ações para os próximos 7 dias)
+9. AÇÕES DE MÉDIO PRAZO (liste 2-3 ações para os próximos 7 dias, como fazer e quais resultados esperados)
 
-Seja ESPECÍFICO, TÉCNICO e ACIONÁVEL. Use números e dados para embasar suas recomendações. Pense como um gestor que precisa entregar resultados."""
+Seja ESPECÍFICO, TÉCNICO e ACIONÁVEL. Use números e dados para embasar suas recomendações. Pense como um gestor que precisa entregar resultados. Deixe esse relatório enxuto, falando somente o necessário, claro e sem rodeios. Deixe de fácil visualização também, use emojis, fala simples, organizado."""
 
     try:
         # Chama GPT-4 para análise
@@ -159,12 +161,12 @@ def format_daily_comment(campaign_name, spend, impressions, clicks, unique_click
     # Monta métricas
     metrics_section = f"""*Campanha:* {campaign_name}
 
-💰 *Investimento:* R$ {spend:.2f}
-👁️ *Impressões:* {impressions:,}
-🖱️ *Clicks:* {clicks} ({unique_clicks} únicos)
-📊 *CTR:* {ctr:.2f}% (único: {unique_ctr:.2f}%)
-💵 *CPC:* R$ {cpc:.2f}
-📢 *CPM:* R$ {cpm:.2f}
+💰 Investimento: R$ {spend:.2f}
+👁️ Impressões: {impressions:,}
+🖱️ Clicks: {clicks} ({unique_clicks} únicos)
+📊 CTR: {ctr:.2f}% (único: {unique_ctr:.2f}%)
+💵 CPC: R$ {cpc:.2f}
+📢 CPM: R$ {cpm:.2f}
 🔄 *Frequência:* {frequency:.2f}"""
     
     if conversions > 0:
@@ -199,7 +201,7 @@ def format_daily_comment_fallback(data):
     now = datetime.now()
     date_str = now.strftime("%d/%m/%Y às %H:%M")
     
-    campaign_name = data.get("campaign_name", "Campanha")
+    campaign_name = data.get("campaign_name", "0")
     spend = float(data.get("spend", 0))
     impressions = int(data.get("impressions", 0))
     clicks = int(data.get("clicks", 0))
@@ -213,13 +215,13 @@ def format_daily_comment_fallback(data):
 
 ---
 
-*Campanha:* {campaign_name}
+Campanha: {campaign_name}
 
-💰 *Investimento:* R$ {spend:.2f}
-👁️ *Impressões:* {impressions:,}
-🖱️ *Clicks:* {clicks}
-📊 *CTR:* {ctr:.2f}%
-💵 *CPC:* R$ {cpc:.2f}
+💰 Investimento: R$ {spend:.2f}
+👁️ Impressões: {impressions:,}
+🖱️ Clicks: {clicks}
+📊 CTR: {ctr:.2f}%
+💵 CPC: R$ {cpc:.2f}
 
 ---
 
