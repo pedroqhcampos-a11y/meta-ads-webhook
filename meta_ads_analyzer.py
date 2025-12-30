@@ -37,7 +37,6 @@ def analyze_daily_metrics(data: dict) -> dict:
     )
 
     # ===== Métricas =====
-    # Mantive sua lógica original de conversão
     spend = float(data.get("spend", 0) or 0)
     impressions = int(data.get("impressions", 0) or 0)
     reach = int(data.get("reach", 0) or 0)
@@ -83,7 +82,7 @@ Métricas:
     # ===== Chamada OpenAI (COM A CORREÇÃO DO MODELO) =====
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",  # <--- AQUI ESTAVA O ERRO (Era gpt-4.1)
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Você é direto, técnico e acionável."},
                 {"role": "user", "content": prompt}
@@ -93,4 +92,50 @@ Métricas:
         )
         analysis_text = response.choices[0].message.content
     except Exception as e:
-        # Se
+        # AQUI ESTAVA O ERRO: O Python exige que esta linha abaixo esteja indentada
+        analysis_text = f"⚠️ Não foi possível gerar a análise da IA. Erro: {str(e)}"
+
+    # ===== Formatação (A ORIGINAL BONITA) =====
+    formatted_comment = f"""
+📊 ANÁLISE DIÁRIA – META ADS (INTERNO)
+
+📅 Dados: {report_date}
+⏱️ Gerado em: {generated_at}
+
+━━━━━━━━━━━━━━━━━━━━
+🎯 CAMPANHA
+{campaign_name}
+━━━━━━━━━━━━━━━━━━━━
+
+📌 MÉTRICAS
+
+📈 KPIs – BASE
+💰 Spend: R$ {spend:.2f}
+👁️ Impressões: {impressions}
+📣 Alcance: {reach}
+📢 CPM: R$ {cpm:.2f}
+🔄 Frequência: {frequency:.2f}
+
+🖱️ KPIs – CLIQUE
+🖱️ Clicks: {clicks} ({unique_clicks} únicos)
+📊 CTR: {ctr:.2f}% (único {unique_ctr:.2f}%)
+💵 CPC: R$ {cpc:.2f}
+
+━━━━━━━━━━━━━━━━━━━━
+🧠 ANÁLISE
+━━━━━━━━━━━━━━━━━━━━
+
+{analysis_text}
+"""
+
+    return {
+        "success": True,
+        "formatted_comment": formatted_comment
+    }
+
+
+def analyze_weekly_metrics(data_list: list) -> dict:
+    return {
+        "success": False,
+        "formatted_comment": "Relatório semanal ainda não habilitado."
+    }
