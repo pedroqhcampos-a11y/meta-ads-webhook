@@ -1,6 +1,7 @@
 #!/usr/bin/env python3.11
 """
-Meta Ads Analyzer – Relatório diário profissional (ClickUp)
+Meta Ads Analyzer – Relatório Diário Profissional (ClickUp)
+Compatível com webhook_server.py
 """
 
 import os
@@ -50,14 +51,14 @@ def resolve_report_date(data: dict) -> str:
 
 
 # =========================
-# Análise diária (single campanha)
+# Análise diária (1 campanha)
 # =========================
 def analyze_daily_metrics(data: dict) -> dict:
     """
     Analisa métricas de UMA campanha
     """
 
-    campaign_name = data.get("campaign_name", "Campanha sem nome")
+    campaign_name = data.get("campaign_name") or "Campanha sem nome"
 
     # métricas base
     spend = float(data.get("spend", 0) or 0)
@@ -71,7 +72,7 @@ def analyze_daily_metrics(data: dict) -> dict:
     cpm = float(data.get("cpm", 0) or 0)
     frequency = float(data.get("frequency", 0) or 0)
 
-    # métricas de resultado (podem ou não existir)
+    # métricas de resultado (podem não existir)
     conversions = int(data.get("conversions", 0) or 0)
     cost_per_conversion = float(data.get("cost_per_conversion", 0) or 0)
     messages = int(data.get("messages", 0) or 0)
@@ -127,8 +128,14 @@ Seja direto, técnico e focado em decisão.
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
         messages=[
-            {"role": "system", "content": "Você é um gestor de tráfego sênior, direto e orientado a resultado."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "Você é um gestor de tráfego sênior, direto e orientado a resultado."
+            },
+            {
+                "role": "user",
+                "content": prompt
+            }
         ],
         temperature=0.6,
         max_tokens=1200
@@ -153,6 +160,19 @@ Seja direto, técnico e focado em decisão.
     return {
         "success": True,
         "formatted_comment": comment
+    }
+
+
+# =========================
+# Stub semanal (compatibilidade)
+# =========================
+def analyze_weekly_metrics(data_list: list) -> dict:
+    """
+    Stub temporário para manter compatibilidade com o webhook_server.
+    """
+    return {
+        "success": False,
+        "formatted_comment": "Relatório semanal ainda não habilitado."
     }
 
 
