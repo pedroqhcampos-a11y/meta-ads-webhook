@@ -1,267 +1,350 @@
 #!/usr/bin/env python3.11
 """
-Meta Ads Analyzer - Analisa métricas do Meta Ads e gera insights com IA
+Meta Ads Analyzer - Análise profissional de métricas com IA
 """
 
-import json
 import os
 from datetime import datetime
 from openai import OpenAI
 
-# Inicializa cliente OpenAI
-client = OpenAI()
+# Inicializa cliente OpenAI com configuração da Manus
+client = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+)
+
 
 def analyze_daily_metrics(data: dict) -> dict:
     """
-    Analisa métricas diárias e gera insights com IA
-    
-    Args:
-        data: Dados do Meta Ads recebidos do webhook
-        
-    Returns:
-        dict com análise formatada
+    Analisa métricas diárias do Meta Ads e gera relatório profissional
     """
     
     # Extrai métricas principais
-    metrics = {
-        "account_name": data.get("account_name", "N/A"),
-        "clicks": int(data.get("clicks", 0)),
-        "impressions": int(data.get("impressions", 0)),
-        "spend": float(data.get("spend", 0)),
-        "cpc": float(data.get("cpc", 0)),
-        "cpm": float(data.get("cpm", 0)),
-        "ctr": float(data.get("ctr", 0)),
-        "frequency": float(data.get("frequency", 0)),
-        "unique_clicks": int(data.get("unique_clicks", 0)),
-        "unique_ctr": float(data.get("unique_ctr", 0)),
-        "objective": data.get("objective", "N/A"),
-        "date_start": data.get("date_start", ""),
-        "date_stop": data.get("date_stop", "")
-    }
+    campaign_name = data.get("campaign_name", "Campanha")
+    ad_name = data.get("ad_name", "")
+    adset_name = data.get("adset_name", "")
     
-    # Prompt para análise diária
-    prompt = f"""Você é um especialista em Meta Ads e análise de performance de campanhas. 
-
-Analise as seguintes métricas de uma campanha do Meta Ads e forneça insights acionáveis:
-
-**Métricas do dia:**
-- Conta: {metrics['account_name']}
-- Investimento: R$ {metrics['spend']:.2f}
-- Impressões: {metrics['impressions']:,}
-- Clicks: {metrics['clicks']}
-- Clicks únicos: {metrics['unique_clicks']}
-- CTR: {metrics['ctr']:.2f}%
-- CTR único: {metrics['unique_ctr']:.2f}%
-- CPC: R$ {metrics['cpc']:.2f}
-- CPM: R$ {metrics['cpm']:.2f}
-- Frequência: {metrics['frequency']:.2f}
-- Objetivo: {metrics['objective']}
-
-**Sua análise deve incluir:**
-
-1. **Resumo de Performance**: Como está a campanha hoje? (Boa, Regular, Precisa melhorar)
-
-2. **Análise de Métricas**:
-   - O CTR está bom para o objetivo da campanha?
-   - O CPC está competitivo?
-   - A frequência está adequada ou há saturação?
-   - As impressões estão gerando engajamento suficiente?
-
-3. **Pontos de Atenção**:
-   - Identifique métricas que precisam de atenção imediata
-   - Sinalize possíveis problemas (ex: CTR baixo, CPC alto, frequência alta)
-
-4. **Sugestões de Otimização**:
-   - O que deve ser testado/mudado hoje?
-   - Sugestões para criativos, copys, segmentação, orçamento
-   - Ações prioritárias para melhorar resultado e reduzir custo
-
-5. **Próximos Passos**:
-   - O que fazer nas próximas horas/dia?
-
-**Formato da resposta:**
-Use markdown com emojis para facilitar leitura. Seja direto e acionável.
-Foque em RESULTADOS e FATURAMENTO do cliente, não apenas em métricas de vaidade.
-"""
-
-    # Chama GPT-4 para análise
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Você é um especialista em Meta Ads focado em resultados e ROI."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-        max_tokens=1500
-    )
+    spend = float(data.get("spend", 0))
+    impressions = int(data.get("impressions", 0))
+    clicks = int(data.get("clicks", 0))
+    unique_clicks = int(data.get("unique_clicks", 0))
+    ctr = float(data.get("ctr", 0))
+    unique_ctr = float(data.get("unique_ctr", 0))
+    cpc = float(data.get("cpc", 0))
+    cpm = float(data.get("cpm", 0))
+    frequency = float(data.get("frequency", 0))
+    conversions = int(data.get("conversions", 0))
+    cost_per_conversion = float(data.get("cost_per_conversion", 0)) if conversions > 0 else 0
+    conversion_value = float(data.get("conversion_value", 0))
     
-    analysis = response.choices[0].message.content
+    # Calcula ROAS se houver conversões
+    roas = conversion_value / spend if spend > 0 and conversion_value > 0 else 0
     
-    # Formata resultado
-    result = {
-        "type": "daily",
-        "date": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "metrics": metrics,
-        "analysis": analysis,
-        "formatted_comment": format_daily_comment(metrics, analysis)
-    }
+    # Monta prompt para IA
+    prompt = f"""Você é um gestor de tráfego pago sênior especializado em Meta Ads. Analise as métricas abaixo e forneça um relatório profissional e acionável.
+
+MÉTRICAS DA CAMPANHA:
+- Campanha: {campaign_name}
+- Conjunto de anúncios: {adset_name}
+- Anúncio: {ad_name}
+- Investimento: R$ {spend:.2f}
+- Impressões: {impressions:,}
+- Clicks: {clicks} ({unique_clicks} únicos)
+- CTR: {ctr:.2f}% (único: {unique_ctr:.2f}%)
+- CPC: R$ {cpc:.2f}
+- CPM: R$ {cpm:.2f}
+- Frequência: {frequency:.2f}
+- Conversões: {conversions}
+- Custo por conversão: R$ {cost_per_conversion:.2f}
+- Valor de conversão: R$ {conversion_value:.2f}
+- ROAS: {roas:.2f}x
+
+FORNEÇA UMA ANÁLISE COMPLETA E PROFISSIONAL SEGUINDO ESTA ESTRUTURA:
+
+1. STATUS GERAL (em uma linha, seja direto)
+
+2. ANÁLISE DE PERFORMANCE (parágrafo explicativo sobre o desempenho geral)
+
+3. PONTOS POSITIVOS (liste 2-4 pontos específicos com números)
+
+4. PONTOS DE ATENÇÃO (liste 2-4 problemas ou riscos identificados)
+
+5. ANÁLISE DE CRIATIVOS E COPY (baseado no CTR, frequência e engajamento):
+   - Avalie se o criativo está performando bem
+   - Sugira melhorias específicas no criativo (formato, cor, CTA visual)
+   - Sugira melhorias na copy (tom, urgência, benefícios)
+   - Indique se precisa de teste A/B
+
+6. ANÁLISE DE SEGMENTAÇÃO (baseado no CPM, CPC e frequência):
+   - Avalie se o público está correto
+   - Sugira ajustes de segmentação
+   - Indique se há saturação ou oportunidades
+
+7. ANÁLISE DE ORÇAMENTO E ESCALA:
+   - Avalie se o orçamento está adequado
+   - Sugira como escalar (se aplicável)
+   - Indique riscos de escala
+
+8. AÇÕES IMEDIATAS (liste 3-5 ações específicas e acionáveis para HOJE)
+
+9. AÇÕES DE MÉDIO PRAZO (liste 2-3 ações para os próximos 7 dias)
+
+Seja ESPECÍFICO, TÉCNICO e ACIONÁVEL. Use números e dados para embasar suas recomendações. Pense como um gestor que precisa entregar resultados."""
+
+    try:
+        # Chama GPT-4 para análise
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "Você é um gestor de tráfego pago sênior com 10+ anos de experiência em Meta Ads. Suas análises são diretas, técnicas e focadas em resultados."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        analysis_text = response.choices[0].message.content
+        
+        # Formata para ClickUp
+        formatted_comment = format_daily_comment(
+            campaign_name=campaign_name,
+            spend=spend,
+            impressions=impressions,
+            clicks=clicks,
+            unique_clicks=unique_clicks,
+            ctr=ctr,
+            unique_ctr=unique_ctr,
+            cpc=cpc,
+            cpm=cpm,
+            frequency=frequency,
+            conversions=conversions,
+            cost_per_conversion=cost_per_conversion,
+            roas=roas,
+            analysis_text=analysis_text
+        )
+        
+        return {
+            "success": True,
+            "type": "daily",
+            "metrics": {
+                "spend": spend,
+                "impressions": impressions,
+                "clicks": clicks,
+                "ctr": ctr,
+                "cpc": cpc
+            },
+            "analysis": analysis_text,
+            "formatted_comment": formatted_comment
+        }
     
-    return result
+    except Exception as e:
+        # Fallback se a IA falhar
+        return {
+            "success": False,
+            "error": str(e),
+            "formatted_comment": format_daily_comment_fallback(data)
+        }
 
 
-def format_daily_comment(metrics: dict, analysis: str) -> str:
+def format_daily_comment(campaign_name, spend, impressions, clicks, unique_clicks, 
+                         ctr, unique_ctr, cpc, cpm, frequency, conversions, 
+                         cost_per_conversion, roas, analysis_text):
     """
-    Formata comentário para o ClickUp (análise diária)
+    Formata comentário diário para ClickUp com análise da IA
     """
-    comment = f"""# 📊 Análise Diária - Meta Ads
+    
+    now = datetime.now()
+    date_str = now.strftime("%d/%m/%Y")
+    
+    # Monta métricas
+    metrics_section = f"""*Campanha:* {campaign_name}
 
-**Data**: {datetime.now().strftime("%d/%m/%Y às %H:%M")}
-**Cliente**: {metrics['account_name']}
+💰 *Investimento:* R$ {spend:.2f}
+👁️ *Impressões:* {impressions:,}
+🖱️ *Clicks:* {clicks} ({unique_clicks} únicos)
+📊 *CTR:* {ctr:.2f}% (único: {unique_ctr:.2f}%)
+💵 *CPC:* R$ {cpc:.2f}
+📢 *CPM:* R$ {cpm:.2f}
+🔄 *Frequência:* {frequency:.2f}"""
+    
+    if conversions > 0:
+        metrics_section += f"""
+🎯 *Conversões:* {conversions}
+💸 *Custo/Conversão:* R$ {cost_per_conversion:.2f}"""
+        if roas > 0:
+            metrics_section += f"""
+📈 *ROAS:* {roas:.2f}x"""
+    
+    # Monta comentário completo
+    comment = f"""📊 *Análise Diária - Meta Ads*
+
+*Cliente:* Snob Motel LTDA
+*Data:* {date_str}
 
 ---
 
-## 📈 Métricas do Dia
-
-💵 **Investimento**: R$ {metrics['spend']:.2f}
-👁️ **Impressões**: {metrics['impressions']:,}
-🖱️ **Clicks**: {metrics['clicks']} ({metrics['unique_clicks']} únicos)
-📊 **CTR**: {metrics['ctr']:.2f}% (único: {metrics['unique_ctr']:.2f}%)
-💰 **CPC**: R$ {metrics['cpc']:.2f}
-📢 **CPM**: R$ {metrics['cpm']:.2f}
-🔄 **Frequência**: {metrics['frequency']:.2f}
+{metrics_section}
 
 ---
 
-## 🤖 Análise com IA
-
-{analysis}
-
----
-
-*Análise gerada automaticamente por IA*
-"""
+{analysis_text}"""
+    
     return comment
+
+
+def format_daily_comment_fallback(data):
+    """
+    Formato fallback caso a IA falhe
+    """
+    now = datetime.now()
+    date_str = now.strftime("%d/%m/%Y às %H:%M")
+    
+    campaign_name = data.get("campaign_name", "Campanha")
+    spend = float(data.get("spend", 0))
+    impressions = int(data.get("impressions", 0))
+    clicks = int(data.get("clicks", 0))
+    ctr = float(data.get("ctr", 0))
+    cpc = float(data.get("cpc", 0))
+    
+    return f"""📊 *Análise Diária - Meta Ads*
+
+*Cliente:* Snob Motel LTDA
+*Data:* {date_str}
+
+---
+
+*Campanha:* {campaign_name}
+
+💰 *Investimento:* R$ {spend:.2f}
+👁️ *Impressões:* {impressions:,}
+🖱️ *Clicks:* {clicks}
+📊 *CTR:* {ctr:.2f}%
+💵 *CPC:* R$ {cpc:.2f}
+
+---
+
+_Análise detalhada temporariamente indisponível. Métricas coletadas com sucesso._"""
 
 
 def analyze_weekly_metrics(data_list: list) -> dict:
     """
-    Analisa métricas semanais e gera relatório completo
-    
-    Args:
-        data_list: Lista de dados dos últimos 7 dias
-        
-    Returns:
-        dict com análise semanal formatada
+    Analisa métricas semanais e gera relatório + roteiro de áudio
     """
     
-    # Agrega métricas da semana
+    # Soma métricas da semana
     total_spend = sum(float(d.get("spend", 0)) for d in data_list)
     total_impressions = sum(int(d.get("impressions", 0)) for d in data_list)
     total_clicks = sum(int(d.get("clicks", 0)) for d in data_list)
-    avg_ctr = sum(float(d.get("ctr", 0)) for d in data_list) / len(data_list) if data_list else 0
-    avg_cpc = sum(float(d.get("cpc", 0)) for d in data_list) / len(data_list) if data_list else 0
+    total_conversions = sum(int(d.get("conversions", 0)) for d in data_list)
     
-    # Prompt para análise semanal
-    prompt = f"""Você é um especialista em Meta Ads e precisa criar um relatório semanal para enviar ao cliente.
+    avg_ctr = sum(float(d.get("ctr", 0)) for d in data_list) / len(data_list) if data_list else 0
+    avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0
+    
+    # Monta prompt para IA (relatório semanal)
+    prompt = f"""Você é um gestor de tráfego pago sênior. Crie um relatório semanal profissional para o cliente.
 
-**Métricas da Semana:**
-- Investimento Total: R$ {total_spend:.2f}
+MÉTRICAS DA SEMANA:
+- Investimento total: R$ {total_spend:.2f}
 - Impressões: {total_impressions:,}
 - Clicks: {total_clicks}
-- CTR Médio: {avg_ctr:.2f}%
-- CPC Médio: R$ {avg_cpc:.2f}
+- CTR médio: {avg_ctr:.2f}%
+- CPC médio: R$ {avg_cpc:.2f}
+- Conversões: {total_conversions}
 
-**Crie um relatório que inclua:**
+FORNEÇA:
+1. RESUMO EXECUTIVO (2-3 parágrafos para o cliente)
+2. MÉTRICAS FORMATADAS (no estilo que o cliente espera, simples e visual)
+3. ANÁLISE E RECOMENDAÇÕES (técnico mas acessível)
+4. ROTEIRO DE ÁUDIO (texto que o gestor vai gravar e enviar para o cliente, tom conversacional, 1-2 minutos)"""
 
-1. **Resumo Executivo**: Como foi a semana em termos de resultados?
-
-2. **Métricas Formatadas**: Organize as métricas de forma clara para o cliente (use o formato que já foi definido)
-
-3. **Roteiro de Áudio**: Escreva um roteiro de 1-2 minutos para gravar um áudio explicando os resultados da semana de forma natural e consultiva
-
-4. **Análise e Insights**: O que funcionou bem? O que precisa melhorar?
-
-5. **Recomendações**: Sugestões de mudanças e otimizações para a próxima semana
-
-**Formato:**
-Use markdown, seja claro e consultivo. Foque em RESULTADOS para o negócio do cliente.
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Você é um consultor de marketing digital especializado em Meta Ads."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.7,
-        max_tokens=2000
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "Você é um gestor de tráfego que se comunica de forma clara e profissional com clientes."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2500
+        )
+        
+        analysis_text = response.choices[0].message.content
+        
+        # Formata para ClickUp
+        formatted_comment = format_weekly_comment(
+            total_spend=total_spend,
+            total_impressions=total_impressions,
+            total_clicks=total_clicks,
+            avg_ctr=avg_ctr,
+            avg_cpc=avg_cpc,
+            total_conversions=total_conversions,
+            analysis_text=analysis_text
+        )
+        
+        return {
+            "success": True,
+            "type": "weekly",
+            "formatted_comment": formatted_comment
+        }
     
-    analysis = response.choices[0].message.content
-    
-    result = {
-        "type": "weekly",
-        "period": f"{data_list[0].get('date_start', '')} a {data_list[-1].get('date_stop', '')}",
-        "total_spend": total_spend,
-        "total_impressions": total_impressions,
-        "total_clicks": total_clicks,
-        "avg_ctr": avg_ctr,
-        "avg_cpc": avg_cpc,
-        "analysis": analysis,
-        "formatted_comment": format_weekly_comment(total_spend, total_impressions, total_clicks, avg_ctr, avg_cpc, analysis)
-    }
-    
-    return result
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+            "formatted_comment": "Erro ao gerar relatório semanal."
+        }
 
 
-def format_weekly_comment(spend, impressions, clicks, ctr, cpc, analysis):
+def format_weekly_comment(total_spend, total_impressions, total_clicks, 
+                          avg_ctr, avg_cpc, total_conversions, analysis_text):
     """
-    Formata comentário semanal para o ClickUp
+    Formata comentário semanal para ClickUp
     """
-    comment = f"""# 📊 Relatório Semanal - Meta Ads
+    now = datetime.now()
+    date_str = now.strftime("%d/%m/%Y")
+    
+    comment = f"""📊 *Relatório Semanal - Meta Ads*
 
-**Período**: Última semana
-**Data do Relatório**: {datetime.now().strftime("%d/%m/%Y")}
-
----
-
-## 📈 Métricas da Semana
-
-💵 **Investimento Total**: R$ {spend:.2f}
-👁️ **Impressões**: {impressions:,}
-🖱️ **Clicks**: {clicks}
-📊 **CTR Médio**: {ctr:.2f}%
-💰 **CPC Médio**: R$ {cpc:.2f}
+*Cliente:* Snob Motel LTDA
+*Data:* {date_str}
 
 ---
 
-## 🤖 Análise Completa
+*Resumo da Semana*
 
-{analysis}
+💰 *Investimento Total:* R$ {total_spend:.2f}
+👁️ *Impressões:* {total_impressions:,}
+🖱️ *Clicks:* {total_clicks}
+📊 *CTR Médio:* {avg_ctr:.2f}%
+💵 *CPC Médio:* R$ {avg_cpc:.2f}
+🎯 *Conversões:* {total_conversions}
 
 ---
 
-*Relatório gerado automaticamente por IA*
-"""
+{analysis_text}"""
+    
     return comment
 
 
 if __name__ == "__main__":
-    # Teste com dados de exemplo
+    # Teste
     test_data = {
-        "account_name": "CA - Snob Motel",
-        "clicks": "185",
-        "cpc": "0.055297",
-        "cpm": "2.498169",
-        "ctr": "4.517705",
-        "frequency": "1.098444",
-        "impressions": "4095",
-        "objective": "MULTIPLE",
+        "campaign_name": "Engajamento de vídeos",
+        "ad_name": "Vídeo 1",
+        "adset_name": "Público Amplo",
         "spend": "10.23",
+        "impressions": "4095",
+        "clicks": "185",
         "unique_clicks": "173",
-        "unique_ctr": "4.640558"
+        "ctr": "4.52",
+        "unique_ctr": "4.64",
+        "cpc": "0.055",
+        "cpm": "2.50",
+        "frequency": "1.10",
+        "conversions": "0",
+        "cost_per_conversion": "0",
+        "conversion_value": "0"
     }
     
-    print("Testando análise diária...")
     result = analyze_daily_metrics(test_data)
     print(result["formatted_comment"])
