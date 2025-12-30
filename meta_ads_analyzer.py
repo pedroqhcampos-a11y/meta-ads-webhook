@@ -32,7 +32,7 @@ def _parse_report_date(data: dict) -> str:
 
 def analyze_daily_metrics(data: dict) -> dict:
     """
-    Relatório DIÁRIO - Detalhado (Positivo, Atenção, Ação)
+    Relatório DIÁRIO - Detalhado
     """
     # ===== Datas =====
     report_date = _parse_report_date(data)
@@ -54,7 +54,7 @@ def analyze_daily_metrics(data: dict) -> dict:
     conversions = int(data.get("conversions", 0) or 0)
     cost_per_conversion = float(data.get("cost_per_conversion", 0) or 0)
 
-    # ===== Lógica de Objetivo (Contexto para IA) =====
+    # ===== Lógica de Objetivo =====
     objective_note = "Objetivo: Vendas/Leads. Foque em Conversão e CPA."
     name_lower = campaign_name.lower()
     
@@ -92,4 +92,171 @@ Não use markdown (* ou #). Use apenas hifens (-) para listas.
         )
         analysis_text = response.choices[0].message.content.replace("*", "").replace("#", "")
     except Exception as e:
-        analysis_
+        analysis_text = f"Análise indisponível. Erro: {str(e)}"
+
+    # ===== Formatação Diária =====
+    formatted_comment = f"""
+📅 RELATÓRIO DIÁRIO
+Dados de: {report_date} (Gerado às {generated_at})
+
+📍 CAMPANHA: {campaign_name}
+
+💰 MÉTRICAS DO DIA
+💵 Investimento: R$ {spend:.2f} (Gasto hoje)
+🖱️ Cliques: {clicks} (CPC: R$ {cpc:.2f})
+📊 CTR: {ctr:.2f}% (Taxa de clique)
+
+🚀 RESULTADOS
+🎯 Conversões: {conversions}
+📉 Custo por Resultado: R$ {cost_per_conversion:.2f}
+
+━━━━━━━━━━━━━━━━━━━━
+🧠 ANÁLISE TÉCNICA
+{analysis_text}
+"""
+
+    return {
+        "success": True,
+        "formatted_comment": formatted_comment
+    }
+
+
+def analyze_weekly_metrics(data_list: list) -> dict:
+    """
+    Relatório SEMANAL - Executivo para Cliente
+    """
+    # 1. Preparação dos Totais
+    total_spend = 0.0
+    total_conversions = 0
+    total_clicks = 0
+    
+    campaign_cards = [] 
+    ai_summary_data = []
+
+    # Datas
+    report_date = _get_current_date()
+    if data_list and len(data_list) > 0:
+        try:
+            parsed = _parse_report_date(data_list[0])
+            if parsed:
+                report_date = parsed
+        except Exception:
+            pass
+
+    # 2. Loop principal
+    for item in data_list:
+        name = item.get("campaign_name") or item.get("Campaign Name") or "Sem Nome"
+        spend = float(item.get("spend", 0) or 0)
+        clicks = int(item.get("clicks", 0) or 0)
+        impr = int(item.get("impressions", 0) or 0)
+        
+        conv = 0
+        if "conversions" in item and item["conversions"]:
+            try:
+                conv = int(item["conversions"])
+            except:
+                conv = 0
+        
+        total_spend += spend
+        total_conversions += conv
+        total_clicks += clicks
+
+        # Cálculos Individuais
+        cpc_camp = (spend / clicks) if clicks > 0 else 0
+        cpa_camp = (spend / conv) if conv > 0 else 0
+        ctr_camp = (clicks / impr * 100) if impr > 0 else 0
+
+        # Lógica Visual
+        name_lower = name.lower()
+        is_traffic = "tráfego" in name_lower or "trafego" in name_lower or "clique" in name_lower or "perfil" in name_lower
+        
+        if is_traffic:
+            details_line = f"🖱️ Cliques: {clicks} (Visitas)\n📉 Custo p/ Clique: R$ {cpc_camp:.2f}\n📊 CTR: {ctr_camp:.2f}%"
+            ai_note = f"Campanha TRÁFEGO. {clicks} cliques, CPC R$ {cpc_camp:.2f}. Ignore conversões."
+        else:
+            details_line = f"🚀 Conversões: {conv} (Resultados)\n📉 Custo p/ Resultado: R$ {cpa_camp:.2f}\n🖱️ Cliques: {clicks}"
+            ai_note = f"Campanha CONVERSÃO. {conv} resultados, CPA R$ {cpa_camp:.2f}."
+
+        card = f"""
+📍 CAMPANHA: {name}
+💰 Investimento: R$ {spend:.2f}
+{details_line}
+"""
+        campaign_cards.append(card)
+        ai_summary_data.append(f"- {name}: Investiu R$ {spend:.2f}. {ai_note}")
+
+    # 3. Formatação Final
+    formatted_cards_text = "\n".join(campaign_cards)
+    ai_data_text = "\n".join(ai_summary_data)
+
+    # 4. Prompt IA
+    prompt = f"""
+Você é um consultor. Escreva relatório semanal para WhatsApp do cliente.
+Sem markdown (* ou #).
+
+DADOS:
+Investimento: R$ {total_spend:.2f}
+Resultados: {total_conversions}
+Cliques: {total_clicks}
+
+DETALHE:
+{ai_data_text}
+
+TAREFA 1 (TEXTO WHATSAPP):
+Resumo curto e direto. Respeite o objetivo (se for tráfego, elogie cliques; se for conversão, fale de CPA).
+Termine com "Próximos passos".
+
+TAREFA 2 (TÓPICOS ÁUDIO):
+3 a 4 bullet points para eu gravar áudio.
+
+Separador: ###AUDIO###
+"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        full_content = response.choices[0].message.content.replace("*", "").replace("#", "")
+        
+        if "AUDIO" in full_content:
+            whatsapp_text, audio_topics = full_content.split("AUDIO")
+            whatsapp_text = whatsapp_text.replace("###", "").strip()
+            audio_topics = audio_topics.replace("###", "").strip()
+        else:
+            whatsapp_text = full_content
+            audio_topics = "Não foi possível gerar tópicos."
+
+    except Exception as e:
+        whatsapp_text = f"Análise indisponível: {e}"
+        audio_topics = "Erro na geração."
+
+    formatted_comment = f"""
+📅 RELATÓRIO SEMANAL
+(Dados dos últimos 7 dias)
+
+💰 RESUMO GERAL
+💵 Investimento Total: R$ {total_spend:.2f}
+🚀 Total de Resultados: {total_conversions}
+🖱️ Total de Cliques: {total_clicks}
+
+━━━━━━━━━━━━━━━━━━━━
+📊 DETALHE POR CAMPANHA
+{formatted_cards_text}
+
+━━━━━━━━━━━━━━━━━━━━
+🧠 ANÁLISE ESTRATÉGICA
+{whatsapp_text.strip()}
+
+━━━━━━━━━━━━━━━━━━━━
+🎙️ SUGESTÃO DE ÁUDIO
+(Tópicos para gravar)
+
+{audio_topics.strip()}
+"""
+
+    return {
+        "success": True,
+        "formatted_comment": formatted_comment
+    }
