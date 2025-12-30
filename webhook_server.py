@@ -9,10 +9,14 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 import json
 import os
-import subprocess
+import requests
 from meta_ads_analyzer import analyze_daily_metrics, analyze_weekly_metrics
 
 app = FastAPI(title="Meta Ads Webhook")
+
+# ClickUp API Configuration
+CLICKUP_API_TOKEN = os.getenv("CLICKUP_API_TOKEN", "pk_112009602_D4JNOWDEPVWUTPEBHVPKILZPLAJC8QHZ")
+CLICKUP_API_BASE = "https://api.clickup.com/api/v2"
 
 # Armazena dados recebidos (em produção, usar banco de dados)
 received_data = {}
@@ -93,8 +97,8 @@ async def receive_meta_ads_data(client_slug: str, request: Request):
         task_id = client_config["daily_task_id"]
         comment_text = analysis_result["formatted_comment"]
         
-        # Chama MCP CLI para enviar comentário
-        result = send_clickup_comment(task_id, comment_text)
+        # Envia para ClickUp via API
+        result = send_clickup_comment_api(task_id, comment_text)
         
         if result["success"]:
             return {
@@ -128,58 +132,35 @@ async def receive_meta_ads_data(client_slug: str, request: Request):
         )
 
 
-def send_clickup_comment(task_id: str, comment_text: str) -> dict:
+def send_clickup_comment_api(task_id: str, comment_text: str) -> dict:
     """
-    Envia comentário para o ClickUp usando MCP CLI
+    Envia comentário para o ClickUp usando API direta
     """
     try:
-        # Escapa aspas no texto do comentário
-        comment_escaped = comment_text.replace('"', '\\"').replace('\n', '\\n')
+        url = f"{CLICKUP_API_BASE}/task/{task_id}/comment"
         
-        # Monta comando MCP CLI
-        cmd = [
-            "manus-mcp-cli",
-            "tool",
-            "call",
-            "clickup_create_task_comment",
-            "--server",
-            "clickup",
-            "--input",
-            json.dumps({
-                "task_id": task_id,
-                "comment_text": comment_text
-            })
-        ]
+        headers = {
+            "Authorization": CLICKUP_API_TOKEN,
+            "Content-Type": "application/json"
+        }
         
-        # Executa comando
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        payload = {
+            "comment_text": comment_text,
+            "notify_all": False
+        }
         
-        if result.returncode == 0:
-            # Parse output para pegar comment_id
-            try:
-                # O output do MCP CLI geralmente tem o resultado em JSON
-                output_lines = result.stdout.strip().split('\n')
-                for line in output_lines:
-                    if line.startswith('{'):
-                        response = json.loads(line)
-                        if response.get("success"):
-                            return {
-                                "success": True,
-                                "comment_id": response.get("comment_id")
-                            }
-            except:
-                pass
-            
-            return {"success": True}
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code in [200, 201]:
+            data = response.json()
+            return {
+                "success": True,
+                "comment_id": data.get("id")
+            }
         else:
             return {
                 "success": False,
-                "error": result.stderr
+                "error": f"ClickUp API error: {response.status_code} - {response.text}"
             }
     
     except Exception as e:
@@ -213,7 +194,7 @@ async def receive_weekly_data(client_slug: str, request: Request):
         task_id = client_config["weekly_task_id"]
         comment_text = analysis_result["formatted_comment"]
         
-        result = send_clickup_comment(task_id, comment_text)
+        result = send_clickup_comment_api(task_id, comment_text)
         
         if result["success"]:
             return {
