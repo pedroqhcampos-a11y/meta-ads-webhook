@@ -41,7 +41,7 @@ def analyze_daily_metrics(data: dict) -> dict:
     roas = conversion_value / spend if spend > 0 and conversion_value > 0 else 0
     
     # Monta prompt para IA
-    prompt = f"""Você é um gestor de tráfego pago sênior especializado em Meta Ads. Analise as métricas abaixo e forneça um relatório profissional e acionável.
+    prompt = f"""Você é um gestor de tráfego pago sênior especializado em Meta Ads. Analise as métricas de acordo com o tipo de campanha (entenda do que se trata os anúncios, campanha, conjunto de anúncios e nicho do cliente antes de dar opinião) abaixo e forneça um relatório profissional e acionável.
 
 MÉTRICAS DA CAMPANHA:
 - Campanha: {campaign_name}
@@ -64,8 +64,6 @@ FORNEÇA UMA ANÁLISE COMPLETA E PROFISSIONAL SEGUINDO ESTA ESTRUTURA:
 1. STATUS GERAL: (nessa mesma linha, seja direto e claro, objetivo)
 
 2. ANÁLISE DE PERFORMANCE (visão sobre o desempenho geral)
-
-(dê um espaço aqui)
 
 3. PONTOS POSITIVOS (liste 2-4 pontos específicos com emoji de números, contexto e comparando o mercado de tráfego para o nicho do cliente e o histórico de gastos e retorno da conta do cliente)
 
@@ -159,7 +157,7 @@ def format_daily_comment(campaign_name, spend, impressions, clicks, unique_click
     date_str = now.strftime("%d/%m/%Y")
     
     # Monta métricas
-    metrics_section = f"""*Campanha:* {campaign_name}
+    metrics_section = f"""Campanha: {campaign_name}
 
 💰 Investimento: R$ {spend:.2f}
 👁️ Impressões: {impressions:,}
@@ -178,7 +176,7 @@ def format_daily_comment(campaign_name, spend, impressions, clicks, unique_click
 📈 *ROAS:* {roas:.2f}x"""
     
     # Monta comentário completo
-    comment = f"""📊 *Análise Diária - Meta Ads*
+    comment = f"""📊 Análise Diária - Meta Ads
 
 *Cliente:* Snob Motel LTDA
 *Data:* {date_str}
@@ -208,7 +206,7 @@ def format_daily_comment_fallback(data):
     ctr = float(data.get("ctr", 0))
     cpc = float(data.get("cpc", 0))
     
-    return f"""📊 *Análise Diária - Meta Ads*
+    return f"""📊 Análise Diária - Meta Ads
 
 *Cliente:* Snob Motel LTDA
 *Data:* {date_str}
@@ -243,7 +241,7 @@ def analyze_weekly_metrics(data_list: list) -> dict:
     avg_cpc = total_spend / total_clicks if total_clicks > 0 else 0
     
     # Monta prompt para IA (relatório semanal)
-    prompt = f"""Você é um gestor de tráfego pago sênior. Crie um relatório semanal profissional para o cliente.
+    prompt = f"""Você é um gestor de tráfego pago sênior II. Crie um relatório semanal profissional para o gestor senior III da conta verificar a sua análise e decidir com base na sua análise e sugestão, o que fazer com as métricas.
 
 MÉTRICAS DA SEMANA:
 - Investimento total: R$ {total_spend:.2f}
@@ -305,7 +303,7 @@ def format_weekly_comment(total_spend, total_impressions, total_clicks,
     now = datetime.now()
     date_str = now.strftime("%d/%m/%Y")
     
-    comment = f"""📊 *Relatório Semanal - Meta Ads*
+    comment = f"""📊 Relatório Semanal - Meta Ads
 
 *Cliente:* Snob Motel LTDA
 *Data:* {date_str}
