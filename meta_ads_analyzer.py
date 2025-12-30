@@ -1,18 +1,36 @@
 #!/usr/bin/env python3.11
 """
-Meta Ads Analyzer - Relatório Diário (estável)
+Meta Ads Analyzer - Relatório Diário (Otimizado)
 """
 
 import os
+import logging
 from datetime import datetime
 from zoneinfo import ZoneInfo
 from openai import OpenAI
+
+# Configuração básica de logs para aparecer no Render
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
     base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 )
 
+def _safe_float(value, default=0.0):
+    """Converte para float com segurança, evitando quebras."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return default
+
+def _safe_int(value, default=0):
+    """Converte para int com segurança."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
 
 def _parse_report_date(data: dict) -> str:
     raw = data.get("date_start") or data.get("report_date")
@@ -23,115 +41,116 @@ def _parse_report_date(data: dict) -> str:
     except Exception:
         return datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y")
 
-
 def analyze_daily_metrics(data: dict) -> dict:
-    # ===== Datas =====
-    report_date = _parse_report_date(data)
-    generated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y às %H:%M")
+    logger.info(">>> Iniciando análise de métricas diárias...")
+    
+    try:
+        # ===== Datas =====
+        report_date = _parse_report_date(data)
+        generated_at = datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y às %H:%M")
 
-    # ===== Nomes (FIX do problema) =====
-    # Prioriza o campo vindo do Make: "Campaign Name"
-    campaign_name = (
-        data.get("Campaign Name")
-        or data.get("campaign_name")
-        or "Campanha sem nome"
-    )
+        # ===== Nomes =====
+        campaign_name = (
+            data.get("Campaign Name")
+            or data.get("campaign_name")
+            or "Campanha sem nome"
+        )
 
-    # ===== Métricas =====
-    spend = float(data.get("spend", 0) or 0)
-    impressions = int(data.get("impressions", 0) or 0)
-    reach = int(data.get("reach", 0) or 0)
-    clicks = int(data.get("clicks", 0) or 0)
-    unique_clicks = int(data.get("unique_clicks", 0) or 0)
-    ctr = float(data.get("ctr", 0) or 0)
-    unique_ctr = float(data.get("unique_ctr", 0) or 0)
-    cpc = float(data.get("cpc", 0) or 0)
-    cpm = float(data.get("cpm", 0) or 0)
-    frequency = float(data.get("frequency", 0) or 0)
-    conversions = int(data.get("conversions", 0) or 0)
-    cost_per_conversion = float(data.get("cost_per_conversion", 0) or 0)
+        # ===== Métricas (Com conversão segura) =====
+        spend = _safe_float(data.get("spend"))
+        impressions = _safe_int(data.get("impressions"))
+        reach = _safe_int(data.get("reach"))
+        clicks = _safe_int(data.get("clicks"))
+        unique_clicks = _safe_int(data.get("unique_clicks"))
+        ctr = _safe_float(data.get("ctr"))
+        unique_ctr = _safe_float(data.get("unique_ctr"))
+        cpc = _safe_float(data.get("cpc"))
+        cpm = _safe_float(data.get("cpm"))
+        frequency = _safe_float(data.get("frequency"))
+        conversions = _safe_int(data.get("conversions"))
+        cost_per_conversion = _safe_float(data.get("cost_per_conversion"))
 
-    # ===== Prompt (o mesmo que funcionou) =====
-    prompt = f"""
-Você é um gestor de tráfego pago sênior especializado em Meta Ads.
+        # ===== Prompt =====
+        prompt = f"""
+        Você é um gestor de tráfego pago sênior especializado em Meta Ads.
+        Seja extremamente direto. Use bullet points.
+        
+        Analise as métricas abaixo para a campanha: "{campaign_name}"
+        
+        Métricas:
+        - Spend: R$ {spend:.2f}
+        - CPM: R$ {cpm:.2f} | CPC: R$ {cpc:.2f}
+        - CTR: {ctr:.2f}%
+        - Frequência: {frequency:.2f}
+        - Conversões: {conversions} (Custo/Conv: R$ {cost_per_conversion:.2f})
+        
+        Entregue APENAS:
+        1. Resumo do desempenho em 1 frase.
+        2. 3 Pontos principais (Positivos ou Negativos).
+        3. Ação recomendada para hoje (Otimização).
+        """
 
-Analise as métricas abaixo considerando o OBJETIVO da campanha.
-Se não houver conversões, use CTR, CPC, CPM, frequência e volume de cliques.
+        # ===== Chamada OpenAI =====
+        analysis_text = "Análise de IA indisponível no momento."
+        
+        try:
+            logger.info("Chamando OpenAI (gpt-4o-mini)...")
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",  # <--- CORRIGIDO AQUI (Era gpt-4.1-mini)
+                messages=[
+                    {"role": "system", "content": "Você é um analista de dados de marketing direto e técnico."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.5,
+                max_tokens=600
+            )
+            analysis_text = response.choices[0].message.content
+            logger.info("Resposta da OpenAI recebida com sucesso.")
+            
+        except Exception as e_openai:
+            # Se a OpenAI falhar, loga o erro mas NÃO QUEBRA o fluxo.
+            # Isso impede o erro 500 no Make e o loop de retentativas.
+            logger.error(f"Erro ao chamar OpenAI: {e_openai}")
+            analysis_text = f"⚠️ Não foi possível gerar a análise da IA.\nErro técnico: {str(e_openai)}"
 
-Entregue:
-- OBJETIVO IDENTIFICADO
-- KPIs PRINCIPAIS (3–6)
-- PONTOS POSITIVOS
-- PONTOS A MELHORAR
-- AÇÕES IMEDIATAS (COMO FAZER)
+        # ===== Formatação Final =====
+        formatted_comment = f"""
+📊 ANÁLISE DIÁRIA – META ADS
 
-Campanha: {campaign_name}
-
-Métricas:
-- Spend: R$ {spend:.2f}
-- Impressões: {impressions}
-- Alcance: {reach}
-- Clicks: {clicks} ({unique_clicks} únicos)
-- CTR: {ctr:.2f}% (único {unique_ctr:.2f}%)
-- CPC: R$ {cpc:.2f}
-- CPM: R$ {cpm:.2f}
-- Frequência: {frequency:.2f}
-- Conversões: {conversions}
-- Custo/Conversão: R$ {cost_per_conversion:.2f}
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Você é direto, técnico e acionável."},
-            {"role": "user", "content": prompt}
-        ],
-        temperature=0.6,
-        max_tokens=1500
-    )
-
-    analysis_text = response.choices[0].message.content
-
-    # ===== Formatação (a que funcionou) =====
-    formatted_comment = f"""
-📊 ANÁLISE DIÁRIA – META ADS (INTERNO)
-
-📅 Dados: {report_date}
-⏱️ Gerado em: {generated_at}
-
-━━━━━━━━━━━━━━━━━━━━
-🎯 CAMPANHA
-{campaign_name}
-━━━━━━━━━━━━━━━━━━━━
-
-📌 MÉTRICAS
-
-📈 KPIs – BASE
-💰 Spend: R$ {spend:.2f}
-👁️ Impressões: {impressions}
-📣 Alcance: {reach}
-📢 CPM: R$ {cpm:.2f}
-🔄 Frequência: {frequency:.2f}
-
-🖱️ KPIs – CLIQUE
-🖱️ Clicks: {clicks} ({unique_clicks} únicos)
-📊 CTR: {ctr:.2f}% (único {unique_ctr:.2f}%)
-💵 CPC: R$ {cpc:.2f}
+📅 Data: {report_date} | ⏱️ {generated_at}
 
 ━━━━━━━━━━━━━━━━━━━━
-🧠 ANÁLISE
+🎯 {campaign_name}
 ━━━━━━━━━━━━━━━━━━━━
 
+📌 RESUMO DAS MÉTRICAS
+💰 Investido: R$ {spend:.2f}
+🔄 Conversões: {conversions} (CPA: R$ {cost_per_conversion:.2f})
+🖱️ Cliques: {clicks} (CTR: {ctr:.2f}%)
+📢 CPM: R$ {cpm:.2f} | Freq: {frequency:.2f}
+
+━━━━━━━━━━━━━━━━━━━━
+🧠 ANÁLISE DA IA
+━━━━━━━━━━━━━━━━━━━━
 {analysis_text}
 """
 
-    return {
-        "success": True,
-        "formatted_comment": formatted_comment
-    }
+        logger.info("Processamento concluído com sucesso.")
+        return {
+            "success": True,
+            "formatted_comment": formatted_comment
+        }
 
+    except Exception as e:
+        # Captura erros gerais de lógica para não retornar 500 cru
+        logger.error(f"Erro fatal no processamento: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "formatted_comment": "Erro interno ao processar relatório."
+        }
 
-# Mantém compatibilidade com o webhook_server
+# Função Placeholder (Mantida)
 def analyze_weekly_metrics(data_list: list) -> dict:
     return {
         "success": False,
