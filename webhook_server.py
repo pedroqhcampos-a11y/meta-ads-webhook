@@ -11,7 +11,7 @@ import requests
 import logging
 from meta_ads_analyzer import analyze_daily_metrics, analyze_weekly_metrics
 
-# Configuração de Logs (Isso vai salvar sua vida no dashboard do Render)
+# Configuração de Logs
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,6 @@ CLIENT_TASK_MAPPING = {
         "weekly_task_id": "86ae5nt1d", 
         "account_name": "CA - Snob Motel"
     }
-    # Adicione outros clientes aqui
 }
 
 @app.get("/")
@@ -50,21 +49,19 @@ async def receive_meta_ads_data(client_slug: str, request: Request):
             
         client_config = CLIENT_TASK_MAPPING[client_slug]
         
-        # 2. Recebimento dos Dados (com proteção contra JSON inválido)
+        # 2. Recebimento dos Dados
         try:
             data = await request.json()
         except Exception:
             logger.error("Payload inválido recebido")
             return JSONResponse(status_code=400, content={"error": "JSON inválido"})
 
-        # 3. Análise IA (Usando a função blindada do outro arquivo)
+        # 3. Análise IA
         logger.info("Iniciando análise de IA...")
         analysis_result = analyze_daily_metrics(data)
         
         if not analysis_result.get("success"):
-            # Se a análise falhar, loga mas não derruba o servidor
             logger.error(f"Falha na análise: {analysis_result.get('error')}")
-            # Opcional: Você pode decidir abortar aqui ou enviar uma mensagem de erro pro ClickUp
 
         # 4. Envio para ClickUp
         task_id = client_config["daily_task_id"]
@@ -73,10 +70,7 @@ async def receive_meta_ads_data(client_slug: str, request: Request):
         logger.info(f"Enviando para ClickUp Task: {task_id}")
         clickup_result = send_clickup_comment_api(task_id, comment_text)
         
-        # 5. Resposta para o Make
-        # IMPORTANTE: Aqui corrigimos o bug das 3 mensagens.
-        # Não tentamos acessar chaves que não existem. Apenas confirmamos o sucesso.
-        
+        # 5. Resposta para o Make (Correção do Loop)
         if clickup_result["success"]:
             logger.info("Sucesso total. Ciclo finalizado.")
             return {
@@ -86,10 +80,9 @@ async def receive_meta_ads_data(client_slug: str, request: Request):
                 "comment_id": clickup_result.get("comment_id")
             }
         else:
-            # Se falhou no ClickUp, aí sim retornamos erro para o Make saber
             logger.error(f"Erro no ClickUp: {clickup_result.get('error')}")
             return JSONResponse(
-                status_code=502, # Bad Gateway (Erro externo)
+                status_code=502,
                 content={
                     "status": "error",
                     "step": "clickup_api",
@@ -98,14 +91,12 @@ async def receive_meta_ads_data(client_slug: str, request: Request):
             )
 
     except Exception as e:
-        # Catch-all para evitar crash total
         logger.exception("Erro CRÍTICO não tratado no servidor:")
         return JSONResponse(
             status_code=500,
             content={"error": str(e), "message": "Internal Server Error"}
         )
 
-# Função auxiliar de envio (Mantida e melhorada com logs)
 def send_clickup_comment_api(task_id: str, comment_text: str) -> dict:
     try:
         url = f"{CLICKUP_API_BASE}/task/{task_id}/comment"
@@ -127,4 +118,10 @@ def send_clickup_comment_api(task_id: str, comment_text: str) -> dict:
             return {"success": False, "error": response.text}
             
     except Exception as e:
-        logger.error(f"Erro de conexão com ClickUp: {e
+        # AQUI ESTAVA O ERRO NO COPY-PASTE ANTERIOR
+        logger.error(f"Erro de conexão com ClickUp: {e}")
+        return {"success": False, "error": str(e)}
+
+@app.post("/webhook/meta-ads-weekly/{client_slug}")
+async def receive_weekly_data(client_slug: str, request: Request):
+    return {"status": "ignored", "message": "Relatório semanal em manutenção"}
