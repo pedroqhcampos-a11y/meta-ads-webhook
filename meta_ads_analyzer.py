@@ -14,14 +14,20 @@ client = OpenAI(
 )
 
 
+def _get_current_date() -> str:
+    """Retorna data atual formatada (SP)"""
+    return datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y")
+
+
 def _parse_report_date(data: dict) -> str:
+    """Tenta extrair a data do relatório, se falhar, usa data atual"""
     raw = data.get("date_start") or data.get("report_date")
     if raw and "T" in str(raw):
         raw = str(raw).split("T")[0]
     try:
         return datetime.strptime(raw, "%Y-%m-%d").strftime("%d/%m/%Y")
     except Exception:
-        return datetime.now(ZoneInfo("America/Sao_Paulo")).strftime("%d/%m/%Y")
+        return _get_current_date()
 
 
 def analyze_daily_metrics(data: dict) -> dict:
@@ -52,13 +58,12 @@ def analyze_daily_metrics(data: dict) -> dict:
     objective_note = "Objetivo: Vendas/Leads. Foque em Conversão e CPA."
     name_lower = campaign_name.lower()
     
-    # Se for tráfego, ajusta a expectativa da IA
     if "tráfego" in name_lower or "trafego" in name_lower or "clique" in name_lower or "visita" in name_lower:
         objective_note = "Objetivo: Tráfego/Cliques. NÃO analise conversões. Foque em CPC, CTR e Volume de Cliques."
     elif "engajamento" in name_lower or "msg" in name_lower or "mensagem" in name_lower:
         objective_note = "Objetivo: Mensagens. Conversão aqui significa 'Mensagem Iniciada'."
 
-    # ===== Prompt Diário (Detalhado) =====
+    # ===== Prompt Diário =====
     prompt = f"""
 Você é um gestor de tráfego sênior. Analise o desempenho diário desta campanha.
 {objective_note}
@@ -85,53 +90,6 @@ Não use markdown (* ou #). Use apenas hifens (-) para listas.
             temperature=0.7,
             max_tokens=500
         )
-        # Limpeza de markdown para garantir visual limpo
         analysis_text = response.choices[0].message.content.replace("*", "").replace("#", "")
     except Exception as e:
-        analysis_text = "Análise indisponível."
-
-    # ===== Formatação Diária =====
-    formatted_comment = f"""
-📅 RELATÓRIO DIÁRIO
-Dados de: {report_date} (Gerado às {generated_at})
-
-📍 CAMPANHA: {campaign_name}
-
-💰 MÉTRICAS DO DIA
-💵 Investimento: R$ {spend:.2f} (Gasto hoje)
-🖱️ Cliques: {clicks} (CPC: R$ {cpc:.2f})
-📊 CTR: {ctr:.2f}% (Taxa de clique)
-
-🚀 RESULTADOS
-🎯 Conversões: {conversions}
-📉 Custo por Resultado: R$ {cost_per_conversion:.2f}
-
-━━━━━━━━━━━━━━━━━━━━
-🧠 ANÁLISE TÉCNICA
-{analysis_text}
-"""
-
-    return {
-        "success": True,
-        "formatted_comment": formatted_comment
-    }
-
-
-def analyze_weekly_metrics(data_list: list) -> dict:
-    """
-    Relatório SEMANAL - Executivo para Cliente (WhatsApp/Áudio)
-    """
-    # 1. Preparação dos Totais
-    total_spend = 0.0
-    total_conversions = 0
-    total_clicks = 0
-    
-    campaign_cards = [] 
-    ai_summary_data = []
-
-    # Datas
-    try:
-        if data_list and len(data_list) > 0:
-            report_date = _parse_report_date(data_list[0])
-        else:
-            report_date
+        analysis_
