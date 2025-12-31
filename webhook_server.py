@@ -25,10 +25,14 @@ CLICKUP_API_BASE = "https://api.clickup.com/api/v2"
 CLIENT_TASK_MAPPING = {
     "snob-motel": {
         "daily_task_id": "86ae5nt15", 
-        "weekly_task_id": "86ae5nt1d",  # <--- O ID DA TAREFA SEMANAL ESTÁ AQUI
+        "weekly_task_id": "86ae5nt1d",
         "account_name": "CA - Snob Motel"
+    },
+    "maria-cristina": {
+        "daily_task_id": "86ae6dudq", # ID que você me passou
+        "weekly_task_id": "86ae6dudf", # ID que você me passou
+        "account_name": "CA - Dra. Maria Cristina Bordoni"
     }
-    # Adicione outros clientes aqui se precisar
 }
 
 @app.get("/")
